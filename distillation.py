@@ -116,17 +116,13 @@ def distill_epoch(trn_loader, teacher, student, optimizer, device,
         batch_size = batch_x.size(0)
         num_total += batch_size
 
-        # teacher forward (no grad)
         with torch.no_grad():
             _, teacher_logits = teacher(batch_x)
 
-        # student forward
         _, student_logits = student(batch_x)
 
-        # hard loss
         loss_ce = ce_loss(student_logits, batch_y)
 
-        # soft loss (KL avec température)
         student_soft = F.log_softmax(student_logits / temperature, dim=1)
         teacher_soft = F.softmax(teacher_logits / temperature, dim=1)
         # T² pour compenser la mise à l'échelle du gradient (Hinton et al. 2015)
@@ -175,7 +171,6 @@ def main(args):
         raise ValueError("GPU not detected!")
     print("Device: {}".format(device))
 
-    # --- Teacher (AASIST, gelé) ---
     print("Chargement du teacher AASIST...")
     teacher = get_model(config["teacher_model_config"], device)
     teacher.load_state_dict(torch.load(config["teacher_path"], map_location=device))
@@ -184,7 +179,6 @@ def main(args):
     teacher.eval()
     print("Teacher chargé et gelé.")
 
-    # --- Student (AASIST-L, entraîné from scratch) ---
     print("Initialisation du student AASIST-L...")
     student = get_model(config["student_model_config"], device)
 

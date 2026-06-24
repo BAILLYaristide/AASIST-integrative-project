@@ -48,7 +48,6 @@ def main(args):
     weights = np.array(args.weights if args.weights else [1.0] * len(args.scores))
     weights /= weights.sum()
 
-    # Charger et aligner tous les fichiers par utt_id
     all_dicts = [load_scores(p) for p in args.scores]
     utt_ids = list(all_dicts[0].keys())
     for i, d in enumerate(all_dicts[1:], 1):
@@ -68,7 +67,6 @@ def main(args):
         print(f"{label:<16} {normed.mean():>8.3f} {normed.std():>8.3f} {w:>8.3f}")
         fused += w * normed
 
-    # Écrire le fichier de scores fusionnés
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w") as f:
@@ -76,7 +74,6 @@ def main(args):
             f.write(f"{utt_id} {src} {key} {score:.6f}\n")
     print(f"\nScores fusionnés : {output_path}")
 
-    # Évaluation EER + tDCF
     with open(args.config) as f:
         config = json.load(f)
     db = Path(config["database_path"])
