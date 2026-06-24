@@ -1,0 +1,10 @@
+=====
+=====
+=====
+=====
+epoch016, best eer, 1.5637%  best tdcf, 0.0482
+epoch020, best eer, 1.4545%  best tdcf, 0.0431
+epoch022, best eer, 1.4530%
+  best tdcf, 0.0408
+epoch048, best eer, 1.3461%  best tdcf, 0.0381
+SWA — EER: 1.3900%  tDCF: 0.03826
