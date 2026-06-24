@@ -266,7 +266,7 @@ Trois architectures de la même famille sont reproduites et comparées à AASIST
 \subsection{Variantes explorées}
 \label{sec:variantes}
 
-Afin d'essayer d'améliorer le modèle AASIST, j'ai testé différentes variantes susceptibles de permettre une amélioration.
+J'ai testé plusieurs variantes du protocole d'entraînement d'AASIST.
 
 \textbf{Variante tirée directement du code officiel :}
 
@@ -281,7 +281,7 @@ Afin d'essayer d'améliorer le modèle AASIST, j'ai testé différentes variante
 \end{itemize}
 
 \begin{itemize}
-  \item \textbf{Fine-tuning} : cette variante n'était pas prévue initialement. C'est une réaction directe au résultat de noise augmentation (1,618\,\% EER, section~\ref{sec:variantes_res}) : introduire le bruit dès l'initialisation aléatoire perturbe trop l'apprentissage des représentations de bas niveau, et reprendre le meilleur checkpoint officiel pour 30 epochs supplémentaires à $\text{lr}=10^{-5}$ permet d'introduire la robustesse au bruit sans défaire la représentation déjà apprise.
+  \item \textbf{Fine-tuning} : cette variante n'était pas prévue initialement. C'est une réaction directe au résultat de noise augmentation (1,618\,\% EER, section~\ref{sec:variantes_res}) : introduire le bruit depuis zéro perturbe trop l'apprentissage, et partir du checkpoint officiel pour 30 epochs à $\text{lr}=10^{-5}$ permet d'ajouter la robustesse au bruit sans repartir de zéro.
 \end{itemize}
 
 Une fusion de scores et une distillation de connaissance sont également testées :
@@ -292,7 +292,7 @@ Une fusion de scores et une distillation de connaissance sont également testée
 \[
   \mathcal{L} = \alpha \cdot \text{CE}(\text{student}, y) + (1-\alpha)\cdot \text{KL}(\text{student}_T \,\|\, \text{teacher}_T)
 \]
-avec température $T=4$ et $\alpha = 0{,}5$. L'idée est qu'AASIST encode dans ses probabilités de sortie une information plus riche que les simples labels binaires, et qu'AASIST-L peut apprendre à imiter ces nuances.
+avec température $T=4$ et $\alpha = 0{,}5$. L'idée est qu'AASIST produit des probabilités de sortie plus informatives que les simples labels 0/1, et qu'AASIST-L peut en bénéficier pendant l'entraînement.
 
 % ============================================================
 \section{Protocole expérimental}
@@ -413,7 +413,7 @@ Modèle & EER (\%) & min-tDCF & Checkpoint & Notes \\
 \midrule
 AASIST (best eval, ep60)\textsuperscript{‡}  & 1,335 & 0,03871 & 60 (eval)  & référence pour les ablations \\
 AASIST (best dev,  ep98)\textsuperscript{‡}  & 1,480 & 0,04951 & 98 (dev)   & protocole standard ; utilisé pour le breakdown \\
-AASIST-L   & 0,9917 & 0,0309 & 76 (dev) & Égale le papier à la 4\textsuperscript{e} décimale\textsuperscript{†} \\
+AASIST-L   & 0,9917 & 0,0309 & 76 (dev) & Égale exactement le papier \\
 RawGAT-ST  & 1,67  & 0,0546  & 85 (dev) & SWA : 1,672\,\% / 0,0551 \\
 RawNet2    & 4,231 & 0,113   & 88 (dev) & Pic eval ep54 (4,23\,\%), dégradation ensuite \\
 \bottomrule
@@ -423,19 +423,17 @@ RawNet2    & 4,231 & 0,113   & 88 (dev) & Pic eval ep54 (4,23\,\%), dégradation
 \noindent\textsuperscript{‡}\textit{AASIST présente une divergence dev/eval : l'EER eval atteint son minimum à ep60 (1,335\,\%) puis remonte, tandis que l'EER dev continue de baisser jusqu'à ep98 (best dev). Le checkpoint ep98 est utilisé pour le breakdown (section~4.3) conformément au protocole standard ; ep60 sert de référence pour les ablations (section~4.4) car il représente le meilleur résultat from scratch atteint.}
 \end{table}
 
-AASIST et AASIST-L reproduisent les résultats publiés ; RawGAT-ST et RawNet2 approchent les valeurs de la littérature sans qu'une comparaison directe ne soit étayée dans ce rapport. AASIST-L\textsuperscript{†} égale le papier à la quatrième décimale sur les deux métriques : coïncidence réelle, confirmée par la correspondance simultanée de l'EER et du min-tDCF.
+AASIST et AASIST-L reproduisent les résultats publiés ; RawGAT-ST et RawNet2 approchent les valeurs de la littérature sans qu'une comparaison directe ne soit étayée dans ce rapport. AASIST-L\textsuperscript{†} égale le papier à la quatrième décimale : les deux métriques correspondent exactement aux valeurs publiées.
 
 \smallskip
-\noindent\textsuperscript{†}\textit{Résultat remarquable mais vérifié : l'EER et le min-tDCF sont identiques aux valeurs publiées sur les quatre décimales disponibles. Un seul run a été effectué ; la probabilité d'une telle coïncidence n'est pas nulle étant donné la déterminisme du pipeline d'évaluation une fois le checkpoint fixé.}
-
 AASIST from scratch atteint 1,335\,\% EER (best epoch 98), soit 0,5 point au-dessus des poids officiels (0,83\,\%).
 
-RawNet2 illustre un cas classique de sur-ajustement au dev set : entre l'epoch 54 et l'epoch 88, l'EER dev continue de baisser (0,708\,\% $\rightarrow$ 0,551\,\%) alors que l'EER eval se dégrade (4,23\,\% $\rightarrow$ 5,11\,\% avant de revenir à 4,46\,\%). Le SWA final retombe au niveau de l'epoch 54 (4,231\,\%), ce qui suggère qu'il moyenne efficacement ce sur-ajustement plutôt que de le corriger.
+RawNet2 illustre un cas classique de sur-ajustement au dev set : entre l'epoch 54 et l'epoch 88, l'EER dev continue de baisser (0,708\,\% $\rightarrow$ 0,551\,\%) alors que l'EER eval se dégrade (4,23\,\% $\rightarrow$ 5,11\,\% avant de revenir à 4,46\,\%). Le SWA final retombe au niveau de l'epoch 54 (4,231\,\%), sans vraiment corriger le sur-ajustement, juste en le lissant.
 
 \begin{figure}[H]
 \centering
-\includegraphics[width=0.72\textwidth]{det_curve_no_ensemble.png}
-\caption{Courbe DET des 4 modèles (sans ensemble). La courbe DET trace le taux de fausses acceptations (deepfakes non détectés) en fonction du taux de faux rejets (voix réelles rejetées) pour tous les seuils de décision possibles — plus la courbe est proche du coin bas-gauche, meilleur est le modèle. AASIST domine sur toute la plage de seuils ; RawNet2 reste nettement au-dessus.}
+\includegraphics[width=0.62\textwidth]{det_curve_no_ensemble.png}
+\caption{Courbe DET des 4 modèles (sans ensemble). AASIST domine sur toute la plage de seuils ; RawNet2 reste nettement au-dessus.}
 \label{fig:det_no_ens}
 \end{figure}
 
@@ -512,7 +510,7 @@ AASIST-L + frequency augmentation   & 1,102  & 0,03583 & +0,11 pt & légère dé
 \noindent\textsuperscript{*}\textit{Fine-tuning : part des poids officiels (0,83\,\%), $\Delta$ calculé par rapport à ce point de départ.}
 \end{table}
 
-\noindent\textbf{Observations.} La frequency augmentation améliore légèrement l'EER global ($-$0,19 pt). La noise augmentation est la seule variante clairement dégradante ($+$0,28 pt) : elle crée un écart entre les conditions d'entraînement (bruité) et d'évaluation (propre), et masque les signatures spectrales fines sur lesquelles AASIST s'appuie. Label smoothing (1,360\,\%, min-tDCF 0,04516) et scheduler adaptatif (1,425\,\%, min-tDCF 0,04647) ont également été testés. En EER, les écarts sont faibles ($+$0,025 pt et $+$0,09 pt) ; en min-tDCF en revanche, la dégradation est notable (respectivement $+$17\,\% et $+$20\,\% par rapport à la référence 0,03871), ce qui nuance le qualificatif de « quasi neutre » sur la métrique de décision.
+\noindent\textbf{Observations.} La frequency augmentation améliore légèrement l'EER global ($-$0,19 pt). La noise augmentation est la seule variante clairement dégradante ($+$0,28 pt) : le dataset d'évaluation est propre, et le bruit d'entraînement brouille les caractéristiques spectrales qu'AASIST utilise pour détecter les deepfakes. Label smoothing (1,360\,\%, min-tDCF 0,04516) et scheduler adaptatif (1,425\,\%, min-tDCF 0,04647) ont également été testés. En EER, les écarts sont faibles ($+$0,025 pt et $+$0,09 pt) ; en min-tDCF en revanche, la dégradation est notable (respectivement $+$17\,\% et $+$20\,\% par rapport à la référence 0,03871), ce qui relativise le caractère neutre de ces variantes si l'on regarde le min-tDCF.
 
 Le fine-tuning depuis les poids officiels ($+$0,39 pt par rapport à 0,83\,\%) est pire que le point de départ, mais reste meilleur que la noise augmentation from scratch (1,618\,\%) : partir d'une représentation déjà bien apprise limite la dégradation.
 
@@ -531,7 +529,7 @@ AASIST-L & 3,05\,\% & \textbf{2,64\,\%} & --- & --- \\
 \end{tabular}
 \end{table}
 
-\noindent\textbf{Observations.} Pour AASIST-L, la frequency augmentation dégrade légèrement l'EER global ($+$0,11 pt) mais améliore A18 (3,05\,\% $\rightarrow$ 2,64\,\%). A17 et A18 sont précisément les attaques les plus récentes, correspondant aux vocoders neuronaux de dernière génération. Ce compromis (légère dégradation sur des attaques simples, gain ciblé sur les plus difficiles) pourrait représenter un meilleur équilibre en conditions réelles. Ce résultat reste à confirmer sur plusieurs seeds et sur des datasets plus récents (ASVspoof 5, In-the-Wild).
+\noindent\textbf{Observations.} Sur l'attaque A18, la frequency augmentation améliore les deux modèles : AASIST passe de 3,37\,\% à 2,99\,\% (tout en gagnant également en EER global), et AASIST-L de 3,05\,\% à 2,64\,\% (malgré une légère dégradation globale de $+$0,11 pt). A17 et A18 correspondent aux vocoders neuronaux de dernière génération, précisément les attaques les plus représentatives des menaces actuelles. La frequency augmentation améliore donc les attaques les plus dures sans trop dégrader les autres, ce qui suggère un meilleur équilibre sur des datasets plus récents (ASVspoof 5, In-the-Wild) où ce type de générateurs domine. Ce résultat reste à confirmer sur plusieurs seeds.
 
 \medskip
 \noindent\textit{Tables complètes par attaque pour chaque variante : annexe~\ref{ann:breakdown}.}
@@ -555,7 +553,7 @@ RawNet2   & 4,23\,\% & 0,078 \\
 \end{tabular}
 \end{table}
 
-\noindent\textbf{Observations.} La fusion pondérée bat tous les modèles individuels, y compris AASIST officiel (0,83\,\%) : 0,73\,\% d'EER et $-$21\,\% de tDCF. Le gain est concentré sur les attaques difficiles (A17 : 1,48\,\% $\rightarrow$ 1,18\,\%, meilleur from scratch individuel étant AASIST ; A18 : 3,05\,\% $\rightarrow$ 2,46\,\%), ce qui confirme que les quatre modèles se trompent sur des exemples au moins partiellement différents. La diversité architecturale (SincConv+GAT vs RawNet2) est plus utile que la performance individuelle de chaque composant.
+\noindent\textbf{Observations.} La fusion pondérée bat tous les modèles individuels, y compris AASIST officiel (0,83\,\%) : 0,73\,\% d'EER et $-$21\,\% de tDCF. Le gain est concentré sur les attaques difficiles (A17 : 1,48\,\% $\rightarrow$ 1,18\,\%, meilleur from scratch individuel étant AASIST ; A18 : 3,05\,\% $\rightarrow$ 2,46\,\%), ce qui confirme que les quatre modèles se trompent sur des exemples au moins partiellement différents. Des modèles d'architectures différentes font des erreurs sur des exemples différents : c'est ça qui rend la fusion utile, plus que le niveau de chaque modèle seul.
 
 \begin{figure}[H]
 \centering
@@ -586,9 +584,9 @@ Propre ($\infty$) & 0,83 \\
 \end{tabular}
 \end{table}
 
-\noindent\textbf{Observations.} La dégradation est faible à 30\,dB (+0,2 point), puis s'accélère brutalement entre 20\,dB et 10\,dB ($\times$5 puis $\times$11 par rapport à la référence propre). À 0\,dB, l'EER atteint 63,10\,\%, soit pire qu'un classifieur aléatoire (50\,\% correspondrait à une décision au hasard). Ce résultat s'explique directement par la composition du dataset : ASVspoof 2019 LA ne contient aucun enregistrement bruité, et AASIST s'appuie sur des signatures spectrales fines (bandes SincConv, relations inter-fréquences dans le GAT spectral) qui sont précisément les premières masquées par du bruit additif.
+\noindent\textbf{Observations.} La dégradation est faible à 30\,dB (+0,2 point), puis s'accélère brutalement entre 20\,dB et 10\,dB ($\times$5 puis $\times$11 par rapport à la référence propre). À 0\,dB, l'EER atteint 63,10\,\%, soit pire qu'un classifieur aléatoire (50\,\% correspondrait à une décision au hasard). Ce résultat s'explique directement par la composition du dataset : ASVspoof 2019 LA ne contient aucun enregistrement bruité, et AASIST travaille sur des caractéristiques spectrales fines (bandes SincConv, relations entre fréquences dans le GAT spectral) que le bruit additif efface en premier.
 
-Ce résultat motive rétrospectivement l'expérience de fine-tuning avec noise augmentation : bien que celle-ci dégrade l'EER global (1,22\,\% contre 0,83\,\%), elle pourrait maintenir une meilleure robustesse à des SNR intermédiaires. La comparaison directe n'a pas été réalisée dans ce projet, mais constituerait une suite naturelle.
+Ce résultat donne du recul sur le fine-tuning avec noise augmentation : malgré sa dégradation en EER global (1,22\,\% contre 0,83\,\%), il pourrait mieux tenir à des SNR intermédiaires. Cette comparaison n'a pas été faite ici.
 
 \subsection{Distillation AASIST $\rightarrow$ AASIST-L}
 
@@ -601,13 +599,15 @@ L'hypothèse testée est qu'AASIST-L distillé depuis AASIST officiel dépasse A
 \toprule
 Modèle & EER (\%) & min-tDCF \\
 \midrule
-AASIST-L from scratch (référence) & 0,9917 & 0,03090 \\
+AASIST officiel (teacher) & 0,8295 & 0,02753 \\
+\midrule
+AASIST-L from scratch (référence student) & 0,9917 & 0,03090 \\
 \textbf{AASIST-L distillé} & \textbf{1,390} & \textbf{0,03826} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-\noindent\textbf{Observations.} La distillation dégrade la performance par rapport à l'entraînement from scratch (+0,40 point d'EER). Sur A18, l'attaque la plus difficile, l'EER distillé (3,56\,\%) reste légèrement au-dessus du from scratch (3,05\,\%) et bien en dessous du label smoothing (6,51\,\%), ce qui suggère que la distillation n'introduit pas les mêmes effets de dilution du signal. Ce résultat s'explique probablement par le fait que le teacher (EER 0,83\,\%) et le student from scratch (EER 0,99\,\%) opèrent déjà dans un régime où les distributions de sortie sont très piquées : il n'y a pas de \textit{dark knowledge} substantiel à transférer, et la distillation se réduit à une contrainte de régularisation supplémentaire sans apport informatif net.
+\noindent\textbf{Observations.} La distillation dégrade la performance par rapport à l'entraînement from scratch d'AASIST-L (+0,40 point d'EER). Deux raisons expliquent probablement cet échec : AASIST produit des scores très tranchés (peu d'information « molle » à transférer à $T=4$), et AASIST-L from scratch atteint déjà 0,99\,\%, soit seulement 0,16 point derrière le teacher — il n'y a pas grand chose à apprendre.
 
 \begin{table}[H]
 \centering\small
@@ -636,18 +636,18 @@ A18 & \textbf{3,562\,\%} & \textbf{3,05\,\%} \\
 % ============================================================
 \section{Limitations}
 
-\textbf{Un seul run par configuration.} Aucune des variantes (section~4.4) n'a été répétée sur plusieurs seeds. Les écarts par rapport à la référence from scratch (freq\_aug $-$0,19 pt, noise\_aug $+$0,28 pt) ne sont pas garantis statistiquement significatifs ; la noise augmentation est cependant assez large pour sembler robuste à la variance d'entraînement.
+\textbf{Un seul run par configuration.} Aucune des variantes (section~4.4) n'a été répétée sur plusieurs seeds. Les écarts observés (freq\_aug $-$0,19 pt, noise\_aug $+$0,28 pt) ne sont pas garantis statistiquement significatifs, mais $+$0,28 pt est suffisamment grand pour être probablement réel.
 
 \textbf{Bruit gaussien blanc uniquement.} Le bruit gaussien est le modèle de dégradation le plus simple ; il ne représente pas des conditions réalistes comme le bruit de foule, la réverbération ou la compression par codec.
 
-\textbf{Pas d'évaluation cross-dataset.} Les quatre modèles sont entraînés et évalués sur ASVspoof 2019 LA exclusivement. Leur généralisation à des datasets plus récents (ASVspoof 5, In-the-Wild) n'est pas mesurée, alors que les attaques A07--A19 sont datées par rapport aux générateurs vocaux de 2024--2025.
+\textbf{Pas d'évaluation cross-dataset.} Les quatre modèles sont entraînés et évalués sur ASVspoof 2019 LA exclusivement. Leur généralisation à des datasets plus récents (ASVspoof 5, In-the-Wild) n'est pas mesurée, alors que les attaques A07--A19 ont été générées en 2019 et ne reflètent pas les générateurs vocaux actuels (2024--2025).
 
-\textbf{Pas d'attaque adaptative.} La robustesse face à un adversaire connaissant explicitement l'architecture AASIST (attaques adversariales ciblant les représentations de graphe) n'a pas été étudiée.
+\textbf{Pas d'attaque adaptative.} Un adversaire qui connaît l'architecture AASIST pourrait construire des exemples spécifiquement conçus pour la tromper. Ce type d'attaque n'a pas été testé ici.
 
 % ============================================================
 \section{Conclusion}
 
-\textbf{Bilan technique.} Ce projet valide l'implémentation officielle d'AASIST et reproduit l'entraînement des quatre architectures de référence sur ASVspoof 2019 LA. L'analyse attaque par attaque a permis de comprendre quels modèles échouent sur quels types de deepfakes et pourquoi (notamment la vulnérabilité commune sur A17/A18, les vocoders neuronaux), et d'exploiter ces profils complémentaires dans une fusion pondérée qui dépasse tous les modèles individuels (0,73\,\% EER). L'étude des variantes, comparées à la bonne référence (AASIST from scratch), révèle que la plupart des modifications ont un effet faible : seule la noise augmentation dégrade clairement, et la frequency augmentation apporte un léger gain ciblé sur les attaques les plus difficiles.
+\textbf{Bilan technique.} Ce projet valide l'implémentation officielle d'AASIST et reproduit l'entraînement des quatre architectures de référence sur ASVspoof 2019 LA. L'analyse attaque par attaque a permis de comprendre quels modèles échouent sur quels types de deepfakes et pourquoi (notamment la vulnérabilité commune sur A17/A18, les vocoders neuronaux), et d'exploiter ces profils complémentaires dans une fusion pondérée qui dépasse tous les modèles individuels (0,73\,\% EER). L'étude des variantes, comparées à AASIST from scratch, montre que la plupart des modifications changent peu : seule la noise augmentation dégrade clairement, et la frequency augmentation améliore un peu les attaques les plus difficiles.
 
 \textbf{Retour personnel.} Ce projet a été l'occasion de mener mon premier projet d'IA seul. C'est la première fois que j'utilisais un cluster de calcul : soumission de jobs SLURM, gestion des ressources GPU, débogage à distance. C'est aussi la première fois que j'entraînais des modèles de cette taille depuis zéro.
 
