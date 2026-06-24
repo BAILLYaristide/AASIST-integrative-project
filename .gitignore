@@ -1,11 +1,14 @@
 # etc
 _*
 .*
-exp_result/
-config/
-models/
 depreciated/
 LA/
+
+# Dataset scores (générés à l'évaluation)
+exp_result/*.txt
+
+# Poids des modèles (trop lourds, disponibles via l'officiel)
+models/weights/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

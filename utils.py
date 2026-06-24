@@ -120,6 +120,10 @@ def _get_scheduler(optimizer, optim_config):
     elif optim_config['scheduler'] == 'keras_decay':
         scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer, lr_lambda=lambda step: keras_decay(step))
+    elif optim_config['scheduler'] == 'reduce_on_plateau':
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode='min', patience=5, factor=0.5,
+            min_lr=optim_config.get('lr_min', 1e-6))
     else:
         scheduler = None
     return scheduler

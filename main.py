@@ -86,6 +86,10 @@ def main(args: argparse.Namespace) -> None:
     # define model architecture
     model = get_model(model_config, device)
 
+    if args.resume:
+        model.load_state_dict(torch.load(args.resume, map_location=device))
+        print("Resumed from checkpoint: {}".format(args.resume))
+
     # define dataloaders
     trn_loader, dev_loader, eval_loader = get_loader(
         database_path, args.seed, config)
@@ -127,7 +131,7 @@ def main(args: argparse.Namespace) -> None:
     os.makedirs(metric_path, exist_ok=True)
 
     # Training
-    for epoch in range(config["num_epochs"]):
+    for epoch in range(args.start_epoch, config["num_epochs"]):
         print("Start training epoch{:03d}".format(epoch))
         running_loss = train_epoch(trn_loader, model, optimizer, device,
                                    scheduler, config)
@@ -143,6 +147,9 @@ def main(args: argparse.Namespace) -> None:
         writer.add_scalar("loss", running_loss, epoch)
         writer.add_scalar("dev_eer", dev_eer, epoch)
         writer.add_scalar("dev_tdcf", dev_tdcf, epoch)
+
+        if config["optim_config"]["scheduler"] == "reduce_on_plateau":
+            scheduler.step(dev_eer)
 
         best_dev_tdcf = min(dev_tdcf, best_dev_tdcf)
         if best_dev_eer >= dev_eer:
@@ -161,12 +168,12 @@ def main(args: argparse.Namespace) -> None:
                     output_file=metric_path /
                     "t-DCF_EER_{:03d}epo.txt".format(epoch))
 
-                log_text = "epoch{:03d}, ".format(epoch)
+                log_text = ""
                 if eval_eer < best_eval_eer:
-                    log_text += "best eer, {:.4f}%".format(eval_eer)
+                    log_text += "epoch{:03d}, best eer, {:.4f}%".format(epoch, eval_eer)
                     best_eval_eer = eval_eer
                 if eval_tdcf < best_eval_tdcf:
-                    log_text += "best tdcf, {:.4f}".format(eval_tdcf)
+                    log_text += "epoch{:03d}, best tdcf, {:.4f}".format(epoch, eval_tdcf)
                     best_eval_tdcf = eval_tdcf
                     torch.save(model.state_dict(),
                                model_save_path / "best.pth")
@@ -250,7 +257,8 @@ def get_loader(
 
     train_set = Dataset_ASVspoof2019_train(list_IDs=file_train,
                                            labels=d_label_trn,
-                                           base_dir=trn_database_path)
+                                           base_dir=trn_database_path,
+                                           noise_aug=config.get("noise_aug", False))
     gen = torch.Generator()
     gen.manual_seed(seed)
     trn_loader = DataLoader(train_set,
@@ -333,7 +341,16 @@ def train_epoch(
 
     # set objective (Loss) functions
     weight = torch.FloatTensor([0.1, 0.9]).to(device)
-    criterion = nn.CrossEntropyLoss(weight=weight)
+    if config.get("label_smoothing", 0.0) > 0:
+        smoothing = config["label_smoothing"]
+        base_criterion = nn.CrossEntropyLoss(weight=weight, reduction="none")
+        def criterion(pred, target):
+            ce = base_criterion(pred, target)
+            log_prob = torch.nn.functional.log_softmax(pred, dim=1)
+            smooth = -log_prob.mean(dim=1)
+            return ((1 - smoothing) * ce + smoothing * smooth).mean()
+    else:
+        criterion = nn.CrossEntropyLoss(weight=weight)
     for batch_x, batch_y in trn_loader:
         batch_size = batch_x.size(0)
         num_total += batch_size
@@ -345,11 +362,12 @@ def train_epoch(
         running_loss += batch_loss.item() * batch_size
         optim.zero_grad()
         batch_loss.backward()
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
         optim.step()
 
         if config["optim_config"]["scheduler"] in ["cosine", "keras_decay"]:
             scheduler.step()
-        elif scheduler is None:
+        elif scheduler is None or config["optim_config"]["scheduler"] == "reduce_on_plateau":
             pass
         else:
             raise ValueError("scheduler error, got:{}".format(scheduler))
@@ -388,4 +406,12 @@ if __name__ == "__main__":
                         type=str,
                         default=None,
                         help="directory to the model weight file (can be also given in the config file)")
+    parser.add_argument("--resume",
+                        type=str,
+                        default=None,
+                        help="path to checkpoint to resume training from")
+    parser.add_argument("--start_epoch",
+                        type=int,
+                        default=0,
+                        help="epoch to start training from (use with --resume)")
     main(parser.parse_args())

@@ -50,7 +50,7 @@ def pad_random(x: np.ndarray, max_len: int = 64600):
     x_len = x.shape[0]
     # if duration is already long enough
     if x_len >= max_len:
-        stt = np.random.randint(x_len - max_len)
+        stt = np.random.randint(x_len - max_len) if x_len > max_len else 0
         return x[stt:stt + max_len]
 
     # if too short
@@ -60,13 +60,14 @@ def pad_random(x: np.ndarray, max_len: int = 64600):
 
 
 class Dataset_ASVspoof2019_train(Dataset):
-    def __init__(self, list_IDs, labels, base_dir):
+    def __init__(self, list_IDs, labels, base_dir, noise_aug=False):
         """self.list_IDs	: list of strings (each string: utt key),
            self.labels      : dictionary (key: utt key, value: label integer)"""
         self.list_IDs = list_IDs
         self.labels = labels
         self.base_dir = base_dir
         self.cut = 64600  # take ~4 sec audio (64600 samples)
+        self.noise_aug = noise_aug
 
     def __len__(self):
         return len(self.list_IDs)
@@ -75,6 +76,11 @@ class Dataset_ASVspoof2019_train(Dataset):
         key = self.list_IDs[index]
         X, _ = sf.read(str(self.base_dir / f"flac/{key}.flac"))
         X_pad = pad_random(X, self.cut)
+        if self.noise_aug:
+            snr_db = np.random.uniform(10, 40)
+            signal_power = np.mean(X_pad ** 2) + 1e-8
+            noise_power = signal_power / (10 ** (snr_db / 10))
+            X_pad = X_pad + np.random.randn(len(X_pad)) * np.sqrt(noise_power)
         x_inp = Tensor(X_pad)
         y = self.labels[key]
         return x_inp, y
